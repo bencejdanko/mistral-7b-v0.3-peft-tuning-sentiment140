@@ -1,4 +1,16 @@
-# Mistral 7B v0.3 PEFT Tuning on Sentiment140
+# Small Language Model (SML) PEFT Tuning on Sentiment140
+
+When fine-tuning the models, it can often be infeasible to continue full-weight training on all parameters, which may require 4-5 times the memory in order to store the optimizer states, full precision, and gradients. A frugal approach is to instead focus on training a smaller subset of parameters that can influence the model and can achieve the same results as a full fine tune.
+
+We test LoRA and IA³ techniques for model tuning. LoRA uses low-rank decomposition to approximate weight updates. IA³ conducts element-wise scaling vectors that multiply the existing activations.
+
+## Results
+
+| Method | Best Hyperparameter Set | Accuracy | Precision | Recall | F1 | Peak VRAM |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **Base LLM** | N/A (Zero-Shot) | | | | | — |
+| **LoRA (FT)** | $r=X, \alpha=Y, lr=Z$ | | | | | |
+| **IA³ (FT)** | $lr=B$, $\text{drop}=C$ | | | | | |
 
 ## Dataset: Sentiment140
 
@@ -8,6 +20,10 @@
 * Training set is 5,000 samples (shuffled and stratified).
 * Test set is 1,000 samples (balanced $50/50$ distribution to ensure fair evaluation).
 * Preprocessing is Mapping label `4` to `1` for standard binary cross-entropy compatibility. Removal of data leakage by ensuring no overlap between training and test indices.
+
+## Initial Evaluations
+
+We use OpenRouter to get an initial observation of what base open-source models are already best-tuned to our dataset test set.
 
 ## Model
 
@@ -62,15 +78,7 @@ We evaluate the classification performance using the following:
 * **Recall:** Ability to find all positive instances.
 * **F1-Score:** Harmonic mean of Precision and Recall (**Primary Metric**).
 
-**Target Goal:** $> 93\%$ F1-Score (Bonus Tier).
-
-## Results Table
-
-| Method | Best Hyperparameter Set | Accuracy | Precision | Recall | F1 | Peak VRAM |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Base LLM** | N/A (Zero-Shot) | | | | | — |
-| **LoRA (FT)** | $r=X, \alpha=Y, lr=Z$ | | | | | |
-| **IA³ (FT)** | $lr=B$, $\text{drop}=C$ | | | | | |
+**Target Goal:** $> 93\%$ F1-Score.
 
 ## Deliverables
 
