@@ -4,6 +4,8 @@ When fine-tuning the models, it can often be infeasible to continue full-weight 
 
 We test LoRA and IA³ techniques for model tuning. LoRA uses low-rank decomposition to approximate weight updates. IA³ conducts element-wise scaling vectors that multiply the existing activations.
 
+[Full online report (Google Documents)](https://docs.google.com/document/d/1gmUemWx8zt6N7PIbGn-L2yHQA1rUb76D09YVTAsJqsE/edit?usp=sharing).
+
 ## Results
 
 | Method | Best Hyperparameter Set | Accuracy | Precision | Recall | F1 | Peak VRAM |
