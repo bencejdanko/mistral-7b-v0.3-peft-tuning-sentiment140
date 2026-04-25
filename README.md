@@ -1,4 +1,4 @@
-# Small Language Model (SML) PEFT Tuning on Sentiment140
+# Mistral-7B-v0.3 PEFT Tuning on Sentiment140
 
 When fine-tuning the models, it can often be infeasible to continue full-weight training on all parameters, which may require 4-5 times the memory in order to store the optimizer states, full precision, and gradients. A frugal approach is to instead focus on training a smaller subset of parameters that can influence the model and can achieve the same results as a full fine tune.
 
