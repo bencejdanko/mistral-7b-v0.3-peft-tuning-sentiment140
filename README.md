@@ -4,6 +4,17 @@ When fine-tuning the models, it can often be infeasible to continue full-weight 
 
 We test LoRA and IA³ techniques for model tuning. LoRA uses low-rank decomposition to approximate weight updates. IA³ conducts element-wise scaling vectors that multiply the existing activations.
 
+Instead of a generative model, this a causal transformer binary classifier. We define the model configuration below with `transformers`:
+
+```python
+model = AutoModelForSequenceClassification.from_pretrained(
+    model_id,                           # mistralai/Mistral-7B-v0.3
+    num_labels=2,                       # 2 output labels, binary classification. However, using 1 and making this a regression problem is feasible.
+    dtype=torch.bfloat16,               # tensor type configuration - we use the original BF16
+    device_map="auto"
+)
+```
+
 [Full online report (Google Documents)](https://docs.google.com/document/d/1gmUemWx8zt6N7PIbGn-L2yHQA1rUb76D09YVTAsJqsE/edit?usp=sharing).
 
 ## Results
