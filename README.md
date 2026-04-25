@@ -11,7 +11,6 @@ model = AutoModelForSequenceClassification.from_pretrained(
     model_id,                           # mistralai/Mistral-7B-v0.3
     num_labels=2,                       # 2 output labels, binary classification. However, using 1 and making this a regression problem is feasible.
     dtype=torch.bfloat16,               # tensor type configuration - we use the original BF16
-    device_map="auto"
 )
 ```
 
