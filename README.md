@@ -2,9 +2,9 @@
 
 When fine-tuning the models, it can often be infeasible to continue full-weight training on all parameters, which may require 4-5 times the memory in order to store the optimizer states, full precision, and gradients. A frugal approach is to instead focus on training a smaller subset of parameters that can influence the model and can achieve the same results as a full fine tune.
 
-We test LoRA and IA³ techniques for model tuning. LoRA uses low-rank decomposition to approximate weight updates. IA³ conducts element-wise scaling vectors that multiply the existing activations.
+We test LoRA and Bottleneck Adapter techniques for model tuning. LoRA uses low-rank decomposition to approximate weight updates. Bottleneck adapters freeze the entire pre-trained backbone and only train a set of small, newly introduced modules, inserting small feed-forward network inserted into each layer of the Transformer.
 
-Instead of a generative model, this a causal transformer binary classifier. We define the model configuration below with `transformers`:
+Instead of a generative output, this a causal transformer binary classifier. We define the model configuration below with `transformers`:
 
 ```python
 model = AutoModelForSequenceClassification.from_pretrained(
@@ -14,93 +14,15 @@ model = AutoModelForSequenceClassification.from_pretrained(
 )
 ```
 
+## Final Results
+
+| Method | Best Hyperparameters Set | Accuracy | Precision | Recall | F1 |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| Base LLM | | 0.5380 | 0.5271 | 0.7380 | 0.6150 |
+| LoRA (Fine-tuned) | {'r': 32, 'alpha': 32, 'lr': 0.0004959615908352659} | **0.8780** | **0.8826** | **0.8720** | **0.8773** |
+| Adapters (Fine-tuned) | {'reduction_factor': 16, 'dropout': 0.17640177247960154, 'lr': 0.00025773023366483446} | 0.6390 | 0.6387 | 0.6400 | 0.6393 |
+
+**We trained for 5 epochs on the best optuna-study params*
+
 [Full online report (Google Documents)](https://docs.google.com/document/d/1gmUemWx8zt6N7PIbGn-L2yHQA1rUb76D09YVTAsJqsE/edit?usp=sharing).
 
-## Results
-
-| Method | Best Hyperparameter Set | Accuracy | Precision | Recall | F1 | Peak VRAM |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Base LLM** | N/A (Zero-Shot) | | | | | — |
-| **LoRA (FT)** | $r=X, \alpha=Y, lr=Z$ | | | | | |
-| **IA³ (FT)** | $lr=B$, $\text{drop}=C$ | | | | | |
-
-## Dataset: Sentiment140
-
-[https://huggingface.co/datasets/bdanko/sentiment140](https://huggingface.co/datasets/bdanko/sentiment140)
-
-* Binary Sentiment Classification (0: Negative, 4: Positive).
-* Training set is 5,000 samples (shuffled and stratified).
-* Test set is 1,000 samples (balanced $50/50$ distribution to ensure fair evaluation).
-* Preprocessing is Mapping label `4` to `1` for standard binary cross-entropy compatibility. Removal of data leakage by ensuring no overlap between training and test indices.
-
-## Initial Evaluations
-
-We use OpenRouter to get an initial observation of what base open-source models are already best-tuned to our dataset test set.
-
-## Model
-
-Model is https://huggingface.co/mistralai/Mistral-7B-v0.3.
-
-### VRAM & PEFT Efficiency
-
-Full fine-tuning would require 112 GB of VRAM for a 7B model (weights + gradients + AdamW states). With Parameter-Efficient Fine-Tuning (PEFT) it's more feasbile. Mistral-7B has ~7.3 billion parameters. At bfloat16 precision (2 bytes/param), the base weights occupy ~14.6 GB.
-
-By using LoRA or Adapters, we only train < 2% of the total parameters (roughly 50M - 150M params).
-
-At BF, we require ~20-24 GB, an A10, or RTX 3090/4090 would work.
-
-## Methods
-
-### LoRA (Low-Rank Adaptation)
-
-Injects trainable low-rank matrices into the Transformer layers (specifically the $W_q$ and $W_v$ projections).
-* target `q_proj`, `v_proj`
-* Update weights via $\Delta W = A \times B$, where $A$ and $B$ are low-rank.
-
-### 2. IA³ (Infused Adapter by Inhibiting and Amplifying Inner Activations)
-Rescales attention keys, values, and FFN intermediate activations with learned vectors — no weight matrices added.
-* **Architecture:** Elementwise rescaling vectors injected at `k_proj`, `v_proj`, and `down_proj`.
-* **Implementation:** Using PEFT `IA3Config` — fewer trainable parameters than LoRA (~0.01% of model).
-
----
-
-## Hyperparameter Tuning (Optuna)
-
-We use Optuna to maximize the F1-Score. We will run 20 trials per method.
-
-### Search Space & Justification
-
-| Method | Parameter | Search Space | Justification |
-| :--- | :--- | :--- | :--- |
-| **LoRA** | Rank ($r$) | $\{4, 8, 16, 32\}$ | Higher $r$ captures more complexity but increases VRAM. |
-| | Alpha ($\alpha$) | $\{16, 32, 64\}$ | Scaling factor for the learned weights. |
-| | Learning Rate | $[1 \times 10^{-5}, 5 \times 10^{-4}]$ | Critical for convergence speed and stability. |
-| **IA³**     | (schema key) Bottleneck Dim | $\{32, 64, 128\}$ | Kept for Optuna study schema compatibility; IA³ has no bottleneck dim. |
-| | Learning Rate | $[5 \times 10^{-5}, 1 \times 10^{-3}]$ | IA³ rescaling vectors tolerate higher rates. |
-| | Dropout | $[0.0, 0.3]$ | Attention dropout applied on base model layers. |
-
-**Compute Budget:** Total of 40 trials. Estimated 4-6 hours on an NVIDIA L4 (GCP/Colab).
-
----
-
-## Evaluation Metrics
-We evaluate the classification performance using the following:
-* **Accuracy:** Overall correctness.
-* **Precision:** Quality of positive predictions.
-* **Recall:** Ability to find all positive instances.
-* **F1-Score:** Harmonic mean of Precision and Recall (**Primary Metric**).
-
-**Target Goal:** $> 93\%$ F1-Score.
-
-## Deliverables
-
-### Models
-* `bdanko/mistral-7b-sentiment-lora`: Best LoRA adapter weights.
-* `bdanko/mistral-7b-sentiment-adapter`: Best IA³ adapter weights.
-
-### Raw Data
-* `bdanko/peft-sentiment-optuna-study`: HF Dataset — all 40 Optuna trials with metrics, pushed from notebook.
-
-## Qualitative Analysis
-* **IA³ vs. LoRA:** Comparison of per-trial and final-training VRAM usage, and F1 standard deviation across 20 trials as a measure of training stability.
-* **Error Analysis:** Review of 3 samples where both models misclassified sentiment (e.g., sarcasm, double negatives) and how LoRA vs. IA³ predictions differ.
